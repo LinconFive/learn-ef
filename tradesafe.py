@@ -4,12 +4,11 @@ parser = argparse.ArgumentParser(description="How to make trade safe?")
 
 parser.add_argument("price", nargs='?', type=float, help="What is the current price?")
 parser.add_argument("code", nargs='?', default="cost", help="What is the wanted code?")
-parser.add_argument("-p", "--parameter", help="What are the parameters?")
+parser.add_argument("-p", "--parameter", default="latest", help="What are the parameters?")
 parser.add_argument("-v", "--verbose", action='store_true', help="How does the number come?")
+parser.add_argument("-t", "--testify", action='store_true', help="What conditions are required?")
 
 args = parser.parse_args()
-print(f"given price {args.price}")
-#print(f"Code: {args.code}")
 
 def sell(price):
     #ratio = 0.05
@@ -253,23 +252,122 @@ def get_qdays(name):
    
     print("90days close price", s_list)
 
-def get_to(name, days, verbose):
-    day=days.split('to')
-    if verbose: print("split the days", day)
+def get_month(name):
     import efinance as ef
-    st = day[0].replace('-', '')
-    et = day[1].replace('-', '')
 
-    s = ef.stock.get_quote_history(name, st, et, klt=101)
+    s = ef.stock.get_quote_history(name, klt=103)
     #indices = [2, 3, 4, 5, 6, 7, 11]
     indices = [2, 6]
 
-    dfs = (s.iloc[:, indices])
+    dfs = (s.iloc[:, indices]).tail(30)
     s_list = dfs.values.tolist()
    
-    print(days, "close price", s_list)
+    print("month close price", s_list)
 
+def get_halfyear(name):
+    import efinance as ef
 
+    s = ef.stock.get_quote_history(name, klt=105)
+    #indices = [2, 3, 4, 5, 6, 7, 11]
+    indices = [2, 6]
+
+    dfs = (s.iloc[:, indices]).tail(30)
+    s_list = dfs.values.tolist()
+   
+    print("half year close price", s_list)
+
+def get_year(name):
+    import efinance as ef
+
+    s = ef.stock.get_quote_history(name, klt=106)
+    #indices = [2, 3, 4, 5, 6, 7, 11]
+    indices = [2, 6]
+
+    dfs = (s.iloc[:, indices]).tail(30)
+    s_list = dfs.values.tolist()
+   
+    print("year close price", s_list)
+
+def get_to(name, days, verbose):
+    day=days.split('to')
+    #if verbose: print("split the time", day)
+    import efinance as ef
+    st = day[0].replace('-', '')
+    et = day[1].replace('-', '')
+    s_list = []
+    if len(st) == 8: 
+        s = ef.stock.get_quote_history(name, st, et, klt=101, suppress_error=True)
+    #indices = [2, 3, 4, 5, 6, 7, 11]
+        indices = [2, 6]
+
+        dfs = (s.iloc[:, indices])
+        s_list = dfs.values.tolist()
+    elif len(st) == 6: 
+        st = st + "01"
+        et = et + "01"
+        s = ef.stock.get_quote_history(name, st, et, klt=103, suppress_error=True)
+    #indices = [2, 3, 4, 5, 6, 7, 11]
+        indices = [2, 6]
+
+        dfs = (s.iloc[:, indices])
+        s_list = dfs.values.tolist()
+    elif len(st) == 13: 
+        #print(st[-5:])
+        print("UTC-8")
+        s = ef.stock.get_quote_history(name, st, et, klt=1, suppress_error=True)
+    #indices = [2, 3, 4, 5, 6, 7, 11]
+        indices = [2, 6]
+
+        dfs = (s.iloc[:, indices])
+        s_list = dfs.values.tolist()
+
+    print(days.replace("to", " "), "close price", s_list)
+    
+def get_avg(name, days, verbose):
+    #if verbose: print("split the time", day)
+    import efinance as ef
+    day=days[:-3]
+
+    if "day" in day: 
+
+        s = ef.stock.get_quote_history(name, klt=101)
+        indices = [2, 3, 4, 5, 6, 7, 8]
+    #indices = [2, 6]
+        d = int(day.split("day")[0])
+        dfs = (s.iloc[:, indices]).tail(d)
+        #print(dfs.columns)
+        dfs.columns.values[[0, 1, 2, 3, 4, 5, 6]] = ['date', 'open', 'close', 'high', 'low', 'volume', 'amount']
+        s_list = dfs.values.tolist()
+        if verbose: print(day, "ohlc and volume", s_list)
+        print(day, "close avg", dfs['close'].mean())
+
+        print(day, "vwmp avg", (dfs['amount']/dfs['volume']).mean())
+
+    if "to" in day: 
+
+        d=day.split('to')
+        #if verbose: print("split the time", day)
+        st = d[0].replace('-', '')
+        et = d[1].replace('-', '')
+        s_list = []
+        s = ef.stock.get_quote_history(name, st, et, klt=101, suppress_error=True)
+        indices = [2, 3, 4, 5, 6, 7, 8]
+
+        dfs = (s.iloc[:, indices])
+        dfs.columns.values[[0, 1, 2, 3, 4, 5, 6]] = ['date', 'open', 'close', 'high', 'low', 'volume', 'amount']
+        s_list = dfs.values.tolist()
+        if verbose: print(day, "ohlc and volume", s_list)
+        print(day, "close avg", dfs['close'].mean())
+        print(day, "vwmp avg", (dfs['amount']/dfs['volume']).mean())
+
+import sys
+
+if args.price == None: sys.exit("error: -h")
+else: print(f"given price {args.price}")
+#print(f"Code: {args.code}")
+
+if args.testify: 
+    print("internet condition is testified...")
 
 if args.code == "gann": get_gann(args.price)
 elif args.code == "elliot": get_elliot(args.price)
@@ -279,10 +377,10 @@ elif args.code == "benefit": benefit(args.price)
 elif args.code == "fee": fee(args.price)
 
 else: 
-    import sys
     if args.verbose: print("connecting ef to get the latest price")
-    #try: get_stock(args.code)
-    #except Exception as e: sys.exit("error: no connection for", args.code)
+    #if args.parameter == "latest": 
+    try: get_stock(args.code)
+    except Exception as e: sys.exit("error: -t", args.code)
     if args.parameter == "minutes": get_minutes(args.code)
     
     if args.parameter == "5days": get_fdays(args.code)
@@ -290,6 +388,11 @@ else:
     if args.parameter == "30days": get_mdays(args.code)
 
     if args.parameter == "quarter": get_qdays(args.code)
-    #print(args.parameter)
-    if "to" in args.parameter: get_to(args.code, args.parameter, args.verbose)
+    if args.parameter == "month": get_month(args.code)
+    if args.parameter == "halfyear": get_halfyear(args.code)
+    if args.parameter == "year": get_year(args.code)
+
+
+    if "to" in args.parameter and "avg" not in args.parameter: get_to(args.code, args.parameter, args.verbose)
+    if "avg" in args.parameter: get_avg(args.code, args.parameter, args.verbose)
 
